@@ -2,9 +2,26 @@
 
 Group 3
 
-## Build
+### Part 1
+## 1
+## 2
+## 3
 
-## Tools
+### Part 2
+## 1
+## 2
+## 3
+
+### Part 3
+## 1
+## 2 
+## 3
+
+### Bonus
+ ## Part 1: Build the docker image using the buildpack utility and describe what you observe in comparison with the Dockerfile option.
+ ## Part 2: Configure another alert and send it by e-mail to abdoul-aziz.zakarimadougou@intervenants.efrei.net.
+ 
+### Tools
 - Graphana
 - Prometheus
 - Jenkins
