@@ -8,26 +8,33 @@ import (
 )
 
 type whoami struct {
-	Name  string
-	Title string
+	Title  string
+	Names string
 	State string
 }
 
 func main() {
-	request1()
+	startServer()
 }
 
 func whoAmI(response http.ResponseWriter, r *http.Request) {
-	who := []whoami{
-		whoami{Name: "Efrei Paris",
-			Title: "DevOps and Continous Deployment",
-			State: "FR",
-		},
+	who := whoami{
+		Title: "Group 3",
+		Names: "Billy/Bussiere/Godfrin",
+		State: "FR",
 	}
-
-	json.NewEncoder(response).Encode(who)
-
-	fmt.Println("Endpoint Hit", who)
+	
+	// Set content type to application/json
+	response.Header().Set("Content-Type", "application/json")
+	
+	// Encode the struct to JSON and write it to the response
+	err := json.NewEncoder(response).Encode(who)
+	if err != nil {
+		http.Error(response, "Error encoding JSON", http.StatusInternalServerError)
+		log.Println("JSON encoding error:", err)
+		return
+	}
+	fmt.Println("Endpoint Hit: /whoami", who)
 }
 
 func homePage(response http.ResponseWriter, r *http.Request) {
@@ -42,7 +49,7 @@ func aboutMe(response http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: ", who)
 }
 
-func request1() {
+func startServer() {
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/aboutme", aboutMe)
 	http.HandleFunc("/whoami", whoAmI)
