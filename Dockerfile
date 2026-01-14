@@ -9,7 +9,7 @@ COPY webapi/go.mod webapi/go.sum* ./
 RUN go mod download
 
 # Copy the rest of the source code
-COPY . .
+COPY webapi/ .
 
 # Build the application
 # CGO_ENABLED=0 creates a statically linked binary (ideal for containers)
