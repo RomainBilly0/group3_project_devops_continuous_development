@@ -29,14 +29,14 @@ pipeline {
                 script {
                     // 1. Run the container in the background
                     // We give it a name 'test-api' so we can stop it easily later
-                    sh "docker run -d --name test-api -p 9090:8080 go-api:${commit}"
+                    sh "docker run -d --name test-api -p 9090:9090 go-api:${commit}"
 
                     try {
                         // 2. Wait for it to start
                         sh "sleep 5"
 
                         // 3. Test it
-                        sh "curl --fail http://localhost:8080/"
+                        sh "curl --fail http://localhost:9090/"
                         echo "Test Passed!"
                     } finally {
                         // 4. Clean up: Stop and remove the container whether test passed or failed
