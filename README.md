@@ -48,7 +48,8 @@ import (
 	"net/http"
 )
 
-type whoami struct {
+type whoami struct 
+{
 	Name  string
 	Title string
 	State string
@@ -58,7 +59,8 @@ func main() {
 	request1()
 }
 
-func whoAmI(response http.ResponseWriter, r *http.Request) {
+func whoAmI(response http.ResponseWriter, r *http.Request) 
+{
 	who := []whoami{
 		whoami{Name: "Efrei Paris",
 			Title: "DevOps and Continous Deployment",
@@ -71,19 +73,22 @@ func whoAmI(response http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit", who)
 }
 
-func homePage(response http.ResponseWriter, r *http.Request) {
+func homePage(response http.ResponseWriter, r *http.Request) 
+{
 	fmt.Fprintf(response, "Welcome to the Web API!")
 	fmt.Println("Endpoint Hit: homePage")
 }
 
-func aboutMe(response http.ResponseWriter, r *http.Request) {
+func aboutMe(response http.ResponseWriter, r *http.Request) 
+{
 	who := "EfreiParis"
 
 	fmt.Fprintf(response, "A little bit about me...")
 	fmt.Println("Endpoint Hit: ", who)
 }
 
-func request1() {
+func request1() 
+{
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/aboutme", aboutMe)
 	http.HandleFunc("/whoami", whoAmI)
@@ -101,17 +106,20 @@ import (
 	"net/http"
 )
 
-type whoami struct {
+type whoami struct 
+{
 	Title  string
 	Names string
 	State string
 }
 
-func main() {
+func main() 
+{
 	startServer()
 }
 
-func whoAmI(response http.ResponseWriter, r *http.Request) {
+func whoAmI(response http.ResponseWriter, r *http.Request) 
+{
 	who := whoami{
 		Title: "Group 3",
 		Names: "Billy/Bussiere/Godfrin",
@@ -131,19 +139,22 @@ func whoAmI(response http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: /whoami", who)
 }
 
-func homePage(response http.ResponseWriter, r *http.Request) {
+func homePage(response http.ResponseWriter, r *http.Request) 
+{
 	fmt.Fprintf(response, "Welcome to the Web API!")
 	fmt.Println("Endpoint Hit: homePage")
 }
 
-func aboutMe(response http.ResponseWriter, r *http.Request) {
+func aboutMe(response http.ResponseWriter, r *http.Request) 
+{
 	who := "EfreiParis"
 
 	fmt.Fprintf(response, "A little bit about me...")
 	fmt.Println("Endpoint Hit: ", who)
 }
 
-func startServer() {
+func startServer() 
+{
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/aboutme", aboutMe)
 	http.HandleFunc("/whoami", whoAmI)
