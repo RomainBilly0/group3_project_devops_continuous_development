@@ -13,7 +13,7 @@ COPY . .
 
 # Build the application
 # CGO_ENABLED=0 creates a statically linked binary (ideal for containers)
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./webapi
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./
 
 # STAGE 2: Create the final lightweight image
 FROM alpine:latest
