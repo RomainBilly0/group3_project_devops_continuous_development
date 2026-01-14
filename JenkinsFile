@@ -19,7 +19,7 @@ pipeline {
                     commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
 
                     // Build the image: go-api:<commit>
-                    dockerImage = docker.build("go-api:${commit}")
+                    sh "docker build -t go-api:${commit} ."
                 }
             }
         }
