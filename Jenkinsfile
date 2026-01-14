@@ -29,7 +29,7 @@ pipeline {
                 script {
                     // 1. Run the container in the background
                     // We give it a name 'test-api' so we can stop it easily later
-                    sh "docker run -d --name test-api -p 8080:8080 go-api:${commit}"
+                    sh "docker run -d --name test-api -p 9090:8080 go-api:${commit}"
 
                     try {
                         // 2. Wait for it to start
