@@ -1,57 +1,49 @@
 pipeline {
     agent any
-
-    triggers {
-        githubPush()
+    environment {
+        ARGOCD_SERVER = "localhost:8080" // requires forwarding 443 -> 8080
+        APP_NAME = "go-api-dev"
+        CLUSTER_NAME = "efrei-devops-project"
+        ARGO_PWD = credentials('argo-admin-pwd')
     }
-
     stages {
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
-
-        stage('Build Docker Image') {
+        stage('Build & Load Image') {
             steps {
                 script {
-                    // Create version tag with short git commit
                     commit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-
-                    // Build the image: go-api:<commit>
                     sh "docker build -t go-api:${commit} ."
-                }
-            }
-        }
-
-        stage('Run Container (test)') {
-            steps {
-                script {
-                    // 1. Run the container in the background
-                    // We give it a name 'test-api' so we can stop it easily later
-                    sh "docker run -d --name test-api -p 9090:9090 go-api:${commit}"
-
-                    try {
-                        // 2. Wait for it to start
-                        sh "sleep 5"
-
-                        // 3. Test it
-                        sh "curl --fail http://localhost:9090/"
-                        echo "Test Passed!"
-                    } finally {
-                        // 4. Clean up: Stop and remove the container whether test passed or failed
-                        sh "docker stop test-api || true"
-                        sh "docker rm test-api || true"
-                    }
-                }
-            }
-        }
-
-        stage('Tag and Save Latest') {
-            steps {
-                script {
+                    sh "kind load docker-image go-api:${commit} --name ${CLUSTER_NAME}"
                     sh "docker tag go-api:${commit} go-api:latest"
+                    sh "kind load docker-image go-api:latest --name ${CLUSTER_NAME}"
                 }
+            }
+        }
+        
+        stage('Deploy via ArgoCD') {
+            steps {
+                script {
+                    sh "argocd login ${ARGOCD_SERVER} --username admin --password ${ARGO_PWD} --insecure --grpc-web"
+                    
+                    sh "argocd app sync ${APP_NAME}"
+                    sh "argocd app wait ${APP_NAME}"
+                }
+            }
+        }
+
+        stage('Validate Dev') {
+            steps {
+                sh "kubectl run test-curl --rm -i --restart=Never --image=curlimages/curl -- curl --fail http://go-api.development.svc.cluster.local:8080/whoami"
+            }
+        }
+        stage('Promote to Prod') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh "argocd app sync go-api-prod"
             }
         }
     }

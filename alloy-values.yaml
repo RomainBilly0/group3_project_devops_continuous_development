@@ -1,0 +1,34 @@
+alloy:
+  configReloader:
+    enabled: true
+  config: |
+    // Fetch the remote log file
+    remote.http "apache_log_url" {
+        url = "https://raw.githubusercontent.com/wso2-attic/productdas/refs/heads/master/modules/samples/publishers/httpdlogs/resources/access.log"
+        poll_frequency = "1m"
+    }
+
+    // Process the content into logs
+    loki.relabel "add_label" {
+        forward_to = [loki.process.filter_windows.receiver]
+        rule {
+            target_label = "job"
+            replacement  = "apache_task"
+        }
+    }
+
+    // The REQUIREMENT: Filter out "Windows"
+    loki.process "filter_windows" {
+        stage.drop {
+            expression = ".*Windows.*"
+        }
+        forward_to = [loki.write.to_loki.receiver]
+    }
+
+    // Send to Loki using internal DNS
+    loki.write "to_loki" {
+        endpoint {
+            url = "http://loki-gateway.logging.svc.cluster.local/loki/api/v1/push"
+            tenant_id = "foo"
+        }
+    }

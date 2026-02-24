@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-api
+  namespace: development
+spec:
+  selector:
+    app: go-api
+  ports:
+    - protocol: TCP
+      port: 8080       # Port the service listens on inside the cluster
+      targetPort: 8080 # Port for Go container
+  type: ClusterIP
