@@ -4,7 +4,6 @@ pipeline {
         ARGOCD_SERVER = "localhost:8080" // requires forwarding 443 -> 8080
         APP_NAME = "go-api-dev"
         CLUSTER_NAME = "efrei-devops-project"
-        ARGO_PWD = credentials('argo-admin-pwd')
     }
     stages {
         stage('Checkout') {
@@ -24,11 +23,13 @@ pipeline {
         
         stage('Deploy via ArgoCD') {
             steps {
-                script {
-                    sh "argocd login ${ARGOCD_SERVER} --username admin --password ${ARGO_PWD} --insecure --grpc-web"
-                    
-                    sh "argocd app sync ${APP_NAME}"
-                    sh "argocd app wait ${APP_NAME}"
+                withCredentials([usernamePassword(credentialsId: 'argo-admin-pwd', passwordVariable: 'ARGO_PWD', usernameVariable: 'ARGO_USER')]) {
+                    script {
+                        sh 'argocd login ${ARGOCD_SERVER} --username ${ARGO_USER} --password ${ARGO_PWD} --insecure --grpc-web'
+                        
+                        sh "argocd app sync ${APP_NAME}"
+                        sh "argocd app wait ${APP_NAME}"
+                    }
                 }
             }
         }
