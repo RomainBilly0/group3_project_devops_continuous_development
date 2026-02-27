@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        ARGOCD_SERVER = "localhost:8080" // requires forwarding 443 -> 8080
+        ARGOCD_SERVER = "localhost:9090" // requires forwarding 443 -> 9090
         APP_NAME = "go-api-dev"
         CLUSTER_NAME = "efrei-devops-project"
     }
