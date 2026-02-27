@@ -36,6 +36,7 @@ pipeline {
 
         stage('Validate Dev') {
             steps {
+                sh "kubectl rollout status deployment/go-api -n development --timeout=90s"
                 sh "kubectl run test-curl --rm -i --restart=Never --image=curlimages/curl -- curl --fail http://go-api.development.svc.cluster.local:8080/whoami"
             }
         }
