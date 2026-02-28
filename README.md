@@ -1,188 +1,135 @@
-# ST2DCE-2526PSA01 - DevOps and Continuous Deployment (INGE-3-SEM-A, INGE-3, INGE-3-PRO) Group 3
+# ST2DCE-2526PSA01 — DevOps & Déploiement Continu | Groupe 3
 
+**Efrei Paris** · INGE-3 · 2025–2026
 
-## Part 1
-### Question 1
-<img src="Diagramme sans nom.drawio.png" alt="Schema" />
+> **Équipe :** Billy / Bussiere / Godfrin
 
-### 1. Architecture Cible : Cloud-Native
+---
 
-| Couche | Outil(s) Principal(aux) | Rôle dans l'Architecture |
+## Architecture globale
+
+<img src="Diagramme sans nom.drawio.png" alt="Schéma d'architecture" width="100%" />
+
+---
+
+## Stack technique
+
+| Couche | Outil | Rôle |
 | :--- | :--- | :--- |
-| **Conteneurisation (Base)** | **Docker** | Packaging des microservices en images isolées. |
-| **Orchestration** | **Kubernetes** | Gère le cycle de vie, la mise à l'échelle et la résilience des conteneurs.  |
-| **Gestion Déploiement** | **Helm** | Outil de packagement (Charts) pour des déploiements complexes et reproductibles sur K8s. |
+| **Application** | Go (stdlib) | API REST légère, sans dépendances externes |
+| **Conteneurisation** | Docker (multi-stage) | Packaging en image Alpine ~20 MB |
+| **Cluster local** | KinD | Kubernetes in Docker pour l'environnement de dev/test |
+| **Orchestration** | Kubernetes | Gestion des pods, réplication, service discovery |
+| **Packaging K8s** | Helm | Déploiements reproductibles via `values.yaml` |
+| **CI** | Jenkins | Build, push image, déclenchement ArgoCD |
+| **CD / GitOps** | ArgoCD | Synchronisation Git → Cluster |
+| **Métriques** | Prometheus | Scraping auto via annotations pod |
+| **Logs** | Loki + Alloy | Agrégation et filtrage des logs |
+| **Visualisation** | Grafana | Dashboards métriques + logs, alertes |
+| **Stockage** | MinIO | Backend S3 pour les chunks Loki |
 
-### 2. Tool Chain pour le Déploiement Continu
+---
 
-La chaîne est divisée en trois phases clés : Intégration, Déploiement et Surveillance.
+## Pipeline CI/CD — Enchaînement
 
-##### A. Intégration Continue (CI)
+```
+┌─────────┐    push     ┌─────────┐   build    ┌────────────┐
+│   Git   │ ──────────► │ Jenkins │ ─────────► │   Docker   │
+│ (main)  │             │  (CI)   │            │ (image tag │
+└─────────┘             └─────────┘            │  = git SHA)│
+                                               └─────┬──────┘
+                                                     │ load
+                                                     ▼
+                                               ┌─────────────┐
+                                               │     KinD    │
+                                               │  (cluster)  │
+                                               └─────┬───────┘
+                                                     │
+                                                     ▼
+                                               ┌─────────────┐
+                            login + sync       │   ArgoCD    │
+              Jenkins ────────────────────────►│   (GitOps)  │
+                                               └─────┬───────┘
+                                                     │ apply
+                                                     ▼
+                                          ┌──────────────────────┐
+                                          │   Kubernetes         │
+                                          │   Namespace: dev     │
+                                          │   2 replicas go-api  │
+                                          └──────────┬───────────┘
+                                                     │ validate
+                                                     ▼
+                                          ┌──────────────────────┐
+                                          │  curl /whoami → 200  │
+                                          │  rollout status OK   │
+                                          └──────────┬───────────┘
+                                                     │ (main only)
+                                                     ▼
+                                          ┌──────────────────────┐
+                                          │  ArgoCD sync PROD    │
+                                          │  go-api-prod         │
+                                          └──────────────────────┘
+```
 
-| Outil(s) | Action | Résultat |
+---
+
+## Qui fait quoi
+
+| Outil | Responsabilités |
+| :--- | :--- |
+| **Git** | Source of truth — versionne le code **et** les manifestes K8s |
+| **Jenkins** | Orchestre la CI : checkout → `docker build` → `kind load` → `argocd sync` → validation `curl` |
+| **Docker** | Compile le binaire Go (stage builder) et produit l'image finale Alpine (stage runtime) |
+| **KinD** | Reçoit l'image via `kind load docker-image` — évite un registry externe en local |
+| **ArgoCD** | Détecte chaque commit, compare l'état désiré (Git) à l'état courant (K8s) et applique le delta |
+| **Kubernetes** | Planifie les pods, maintient 2 réplicas, expose le service via DNS interne |
+| **Helm** | Paramétrise les déploiements K8s via `values.yaml` (Prometheus, Loki, Alloy) |
+| **Prometheus** | Scrape automatiquement les métriques des pods annotés (`prometheus.io/scrape: "true"`) |
+| **Alloy** | Collecte des logs distants, filtre les entrées Windows, les pousse vers Loki |
+| **Loki** | Agrège et indexe les logs (TSDB v13, stockage MinIO, mode SimpleScalable) |
+| **Grafana** | Visualise métriques (Prometheus) et logs (Loki) — alerte si pod crash > 5 redémarrages |
+| **MinIO** | Stockage objet S3 local pour les chunks et index Loki |
+
+---
+
+## Environnements
+
+| Environnement | Application ArgoCD | Namespace K8s | Déclenchement |
+| :--- | :--- | :--- | :--- |
+| **Dev** | `go-api-dev` | `development` | Chaque push |
+| **Prod** | `go-api-prod` | *(namespace prod)* | Branche `main` uniquement |
+
+---
+
+## Application — API Go
+
+**Port :** `8080`
+
+| Méthode | Endpoint | Réponse |
 | :--- | :--- | :--- |
-| **Jenkins** | 1. Exécute les tests. 2. Construit l'image **Docker**. 3. Pousse l'image vers le Registre. | Image conteneur vérifiée et prête au déploiement. |
+| GET | `/` | `Welcome to the Web API!` |
+| GET | `/aboutme` | `A little bit about me...` |
+| GET | `/whoami` | JSON `{ "Title": "Group 3", "Names": "Billy/Bussiere/Godfrin", "State": "FR" }` |
 
-##### B. Déploiement Continu (CD) : Approche GitOps
+L'image Docker est construite en **multi-stage** :
+- Stage `builder` : `golang:1.21-alpine` — compile le binaire statique (CGO_ENABLED=0)
+- Stage final : `alpine:latest` — copie uniquement le binaire, image ~20 MB
 
-| Outil(s) | Action | Résultat |
-| :--- | :--- | :--- |
-| **Jenkins / Git** | Met à jour le tag d'image dans le fichier **Helm** (`values.yaml`) et *commit* cette modification dans un dépôt **GitOps**. | Le dépôt GitOps reflète le nouvel état désiré (nouvelle version de l'application). |
-| **ArgoCD / Flux** (Outil GitOps) | Détecte le *commit* Git, compare avec l'état actuel de **Kubernetes**, et applique le changement. | Déploiement automatique et continu de l'application en Production.  |
+---
 
-##### C. Observabilité et Surveillance
+## Observabilité
 
-| Outil(s) | Fonction | Objectif dans le CD |
-| :--- | :--- | :--- |
-| **Prometheus** | Collecte des **Métriques** de performance et de santé. | Détection rapide des anomalies et des goulots d'étranglement après le déploiement. |
-| **Loki** | Agrège les **Logs** des conteneurs. | Diagnostic et analyse des erreurs en temps réel. |
-| **Grafana** | Visualisation unifiée des données de Prometheus et Loki. | Tableaux de bord pour le monitoring post-déploiement et les alertes. |
-## 2
-### Before:
-package main
+```
+Pods K8s
+  ├── Métriques ──────► Prometheus ──────► Grafana (dashboards + alertes)
+  └── Logs
+        └── Alloy ─────► Loki (MinIO) ───► Grafana (explore / dashboards)
+```
 
-import (
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
-)
+**Alerte configurée :** `KubernetesPodCrashLooping` — sévérité `critical` si un pod redémarre plus de 5 fois.
 
-type whoami struct 
-{
-	Name  string
-	Title string
-	State string
-}
-
-func main() {
-	request1()
-}
-
-func whoAmI(response http.ResponseWriter, r *http.Request) 
-{
-	who := []whoami{
-		whoami{Name: "Efrei Paris",
-			Title: "DevOps and Continous Deployment",
-			State: "FR",
-		},
-	}
-
-	json.NewEncoder(response).Encode(who)
-
-	fmt.Println("Endpoint Hit", who)
-}
-
-func homePage(response http.ResponseWriter, r *http.Request) 
-{
-	fmt.Fprintf(response, "Welcome to the Web API!")
-	fmt.Println("Endpoint Hit: homePage")
-}
-
-func aboutMe(response http.ResponseWriter, r *http.Request) 
-{
-	who := "EfreiParis"
-
-	fmt.Fprintf(response, "A little bit about me...")
-	fmt.Println("Endpoint Hit: ", who)
-}
-
-func request1() 
-{
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/aboutme", aboutMe)
-	http.HandleFunc("/whoami", whoAmI)
-
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-### After:
-package main
-
-import (
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
-)
-
-type whoami struct 
-{
-	Title  string
-	Names string
-	State string
-}
-
-func main() 
-{
-	startServer()
-}
-
-func whoAmI(response http.ResponseWriter, r *http.Request) 
-{
-	who := whoami{
-		Title: "Group 3",
-		Names: "Billy/Bussiere/Godfrin",
-		State: "FR",
-	}
-	
-	// Set content type to application/json
-	response.Header().Set("Content-Type", "application/json")
-	
-	// Encode the struct to JSON and write it to the response
-	err := json.NewEncoder(response).Encode(who)
-	if err != nil {
-		http.Error(response, "Error encoding JSON", http.StatusInternalServerError)
-		log.Println("JSON encoding error:", err)
-		return
-	}
-	fmt.Println("Endpoint Hit: /whoami", who)
-}
-
-func homePage(response http.ResponseWriter, r *http.Request) 
-{
-	fmt.Fprintf(response, "Welcome to the Web API!")
-	fmt.Println("Endpoint Hit: homePage")
-}
-
-func aboutMe(response http.ResponseWriter, r *http.Request) 
-{
-	who := "EfreiParis"
-
-	fmt.Fprintf(response, "A little bit about me...")
-	fmt.Println("Endpoint Hit: ", who)
-}
-
-func startServer() 
-{
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/aboutme", aboutMe)
-	http.HandleFunc("/whoami", whoAmI)
-
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-## 3
-
-# Part 2
-## 1
-## 2
-## 3
-
-# Part 3
-## 1
-## 2 
-## 3
-
-# Bonus
- ## Part 1: Build the docker image using the buildpack utility and describe what you observe in comparison with the Dockerfile option.
- ## Part 2: Configure another alert and send it by e-mail to abdoul-aziz.zakarimadougou@intervenants.efrei.net.
- 
-# Tools
-- Graphana
-- Prometheus
-- Jenkins
-- Graphan/Loki
-- Kubernetes
-- Docker
-- Kubernetes/helm
+**Alloy pipeline :**
+1. Fetch logs HTTP (polling 1 min)
+2. Label `job: apache_task`
+3. Drop des entrées contenant "Windows" (regex)
+4. Push vers `loki-gateway.logging.svc.cluster.local`
